@@ -13,27 +13,27 @@
 
 #include "gestionListeChaineeCVS.h"
 
-//Pointeur de tête de liste des versions
 struct noeudV* debutV;
-//Pointeur de queue de liste des versions pour ajout rapide
 struct noeudV* finV;
+// semaphores pour l'exclusion mututelle
+sem_t semDebutV, semFinV; 
 
+int main() {
+	sem_init(&semDebutV, 0, 1);
+	sem_init(&semFinV, 0, 1);
 
-int main(int argc, char* argv[]){
+	cls();
 
-	//Initialisation des pointeurs
-	debutV = NULL;
-	finV = NULL;
-
-	//"Nettoyage" de la fenêtre console
-	//cls();
-	
-	// Chargement de la liste des versions 
 	loadVersions();
 
-	readTrans(argv[1]); // Passage du fichier de transactions
+	printf("Rentrez un nom de fichier de transaction: \n");
+	char word[20];
+	scanf("%s", word);
 
-	//Fin du programme
-	exit( 0);
+	readTrans(word);
+
+	sem_destroy(&semDebutV);
+	sem_destroy(&semFinV);
+
+	exit(0);
 }
-

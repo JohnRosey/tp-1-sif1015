@@ -8,3 +8,4 @@ gestionCVS.o: gestionCVS.c gestionListeChaineeCVS.h
 	gcc -c gestionCVS.c -Wall -I.
 clean:
 	rm *.o
+   

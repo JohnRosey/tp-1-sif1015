@@ -10,7 +10,8 @@
 //# Langage : 	ANSI C on LINUX 
 //#
 //#######################################
-
+#include <stdlib.h>
+ #include <semaphore.h> //Pour les semaphores
 #include "gestionListeChaineeCVS.h"
 
 //Pointeur de tête de la liste de versions 
@@ -24,7 +25,7 @@ extern struct noeudV* finV;
 //#
 void cls(void){
 	printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-	}
+}
 
 //#######################################
 //#
@@ -33,7 +34,7 @@ void cls(void){
 void error(const int exitcode, const char * message){
 	printf("\n-------------------------\n%s\n",message);
 	exit(exitcode);
-	}
+}
 
 //#######################################
 //#
@@ -51,24 +52,21 @@ void loadVersions(){
 	FILE *f;
 	f = fopen("ListeVersions.txt", "rt");
 	
-	if (f==NULL) // au dbut le fichier de version n'existe pas ,..
-	{
-	  addItemV(VRAI, 1, "V1"); // Ajouter une premiere version vide	  
+	// Au debut le fichier de version n'existe pas ,..
+	if (f==NULL) {
+	  	addItemV(true, 1, "V1"); // Ajouter une premiere version vide	  
 	}
-	else 	// fichier existe donc des versions sont disponibles
-	{
-  //Ajout des éléments extraits du fichier de versions
-	  while(!feof(f)){
-	    fgets(version, 100, f);
-	    addItemV(FAUX, numVersion++, version);
-	    loadVersion(numVersion-1); // chargement du code de la version
-	  }
-	  fclose(f);
+	else {	
+		// Fichier existe donc des versions sont disponibles
+  		// Ajout des éléments extraits du fichier de versions
+	  	while(!feof(f)){
+	    	fgets(version, 100, f);
+	    	addItemV(false, numVersion++, version);
+	    	loadVersion(numVersion-1); // chargement du code de la version
+	  	}
 
+	  	fclose(f);
 	}
-
-	
-
  }
  
 //#######################################
@@ -78,7 +76,7 @@ void loadVersions(){
 void loadVersion(const int noV){
 
 	char tligne[100];
-	int noligne=0;
+	//int noligne = 0;
 	
 	struct noeudV * ptr = findItemV(noV);
 	
@@ -87,8 +85,8 @@ void loadVersion(const int noV){
 	
 	ptr->debutL = NULL;
 	ptr->finL = NULL;
-	ptr->oldVersion = VRAI;
-	ptr->commited = FAUX;
+	ptr->oldVersion = true;
+	ptr->commited = false;
 
 	//Ouverture du fichier source en mode "rt" : [r]ead [t]ext
 	FILE *f;
@@ -99,11 +97,17 @@ void loadVersion(const int noV){
 	//Ajout des éléments extraits du fichier source
 	
 	while(!feof(f)){
-	  fgets(tligne, 100, f);
-	  addItemL(noV, noligne++, tligne);
-	}
-	fclose(f);
+		fgets(tligne, 100, f);
 
+		struct paramAL *ptr = (struct paramAL*) malloc(sizeof(struct paramAL));
+		ptr->noVersion = noV;
+		ptr->noLigne += 1;
+		strcpy(ptr->tLigne, (const char *)tligne);
+
+		addItemL(ptr);
+	}
+	
+	fclose(f);
  }
 
  
@@ -118,14 +122,13 @@ void saveItemsV(){
 
 	//Ouverture du fichier en mode "wt" : [w]rite [t]ext
 
- 	f= fopen("ListeVersions.txt", "wt");
-
+ 	f= fopen("./output/ListeVersions.txt", "wt");
 	
 	if (f==NULL)
 		error(2, "saveItemsV: Erreur lors de l'ouverture du fichier des versions pour écriture en mode texte.");
 
 	while (ptr!=NULL){
-		if((ptr->oldVersion == VRAI) || (ptr->commited == VRAI)){ 
+		if((ptr->oldVersion == true) || (ptr->commited == true)){ 
 		  //Écriture des données
 		  fprintf(f,"%s\n",ptr->ptrNoVersion);
 		}
@@ -133,10 +136,8 @@ void saveItemsV(){
 		ptr = ptr->suivant;
 	}
 	
-	//Fermeture du fichier
 	fclose(f);
-	
-	}
+}
 	
 //#######################################
 //#
@@ -151,18 +152,17 @@ void saveItemsL(const int noVersion){
 	if (ptrV==NULL)
 	  return;  
 
-	ptrV->commited = VRAI;
+	ptrV->commited = true;
 	struct noeudL * ptr = ptrV->debutL;	// premier element de la liste de code
 	FILE *f;
 	char nomC[200];
 	char nomTXT[200];
 	
 	strcpy(nomTXT,ptrV->ptrNoVersion); // copier le nom de version
-	sprintf(nomC,"%s.c",nomTXT);
+	sprintf(nomC,"./output/%s.c",nomTXT);
 
 
 	//Ouverture du fichier en mode "wt" : [w]rite [t]ext
-
  	f= fopen(nomC, "wt");
 
 	
@@ -178,10 +178,8 @@ void saveItemsL(const int noVersion){
 		ptr = ptr->suivant;
 	}
 	
-	//Fermeture du fichier
 	fclose(f);
-	
-	}
+}
 
 //#######################################
 //#
@@ -189,19 +187,17 @@ void saveItemsL(const int noVersion){
 //#
 void executeFile(char* sourcefname){
 
-
 	char command[100];
 	char *nomFichier, *sp;
 	
 	nomFichier = strtok_r(sourcefname, ".", &sp); // extraction du nom de fichier sans ext
 
-	sprintf(command,"gcc -o fichCVSEXE%s %s.c\n",nomFichier,nomFichier);
+	sprintf(command, "gcc -o ./output/fichCVSEXE%s ./output/%s.c\n", nomFichier, nomFichier);
 	system(command);
 
 	// execution du fichier fichCVSEXE
-	sprintf(command, "./fichCVSEXE%s",nomFichier);
+	sprintf(command, "./output/fichCVSEXE%s", nomFichier);
 	system(command);
-
 }
 
 //#######################################
@@ -212,9 +208,8 @@ void listFileC(){
 	char command[100];
 
 	// listage des fichiers .c du dossier courant 
-	sprintf(command, "ls -l V*.c");
+	sprintf(command, "ls -l ./output/V*.c");
 	system(command);
-
 }
 
 
@@ -226,6 +221,9 @@ void* readTrans(char* nomFichier){
 	FILE *f;
 	char buffer[100];
 	char *tok, *sp;
+
+	pthread_t tid[1000];
+	int nbThreads = 0;
 
 	//Ouverture du fichier en mode "r" (equiv. "rt") : [r]ead [t]ext
 	f = fopen(nomFichier, "rt");
@@ -241,96 +239,104 @@ void* readTrans(char* nomFichier){
 		//Extraction du type de transaction 2 cas: commande avec arguments et sans argument
 		tok = strtok_r(buffer, " .", &sp);
 
-
 		//Branchement selon le type de transac	
 		if(strcmp(tok, "AL") == 0){
-				//Extraction des paramètres
+			//Extraction des paramètres
 				int noVersion = atoi(strtok_r(NULL, " ", &sp));
 				int noligne = atoi(strtok_r(NULL, " ", &sp));
 				char *tligne = strtok_r(NULL, "\n", &sp);
-				//Appel de la fonction associée
-				addItemL(noVersion, noligne, tligne);
-				
-				
+			// Allocation de mémoire pour paramAl la fonction  addItemL().
+			struct paramAL *ptr = (struct paramAL*) malloc(sizeof(struct paramAL));
+			ptr->noVersion = atoi(strtok_r(NULL, " ", &sp));
+			ptr->noLigne = atoi(strtok_r(NULL, " ", &sp));
+			strcpy(ptr->tLigne, (const char *)strtok_r(NULL, "\n", &sp));
+
+			// thread pour faire addItemL() en  concurrence.
+			
+			pthread_create(&tid[nbThreads++], NULL, addItemL, (void *)ptr); // cast de ptr en pointeur void.
+			
 		}
 		else if(strcmp(tok, "CV") == 0){
-			    //Extraction des paramètres
-				int noVersion = atoi(strtok_r(NULL, "\n ", &sp));
-				//Appel de la fonction associée
-				copyItemV(VRAI, noVersion);
+			//Extraction des paramètres
+			int noVersion = atoi(strtok_r(NULL, "\n ", &sp));
+			//Appel de la fonction associée
+			copyItemV(true, noVersion);
 				
 		}
 		else if(strcmp(tok, "EL") == 0){
-				//Extraction du paramètre
-				int noversion = atoi(strtok_r(NULL, " ", &sp));
-				int noligne = atoi(strtok_r(NULL, "\n", &sp));
-				//Appel de la fonction associée
-				removeItemL(noversion, noligne);
+			//Extraction du paramètre
+			int noversion = atoi(strtok_r(NULL, " ", &sp));
+			int noligne = atoi(strtok_r(NULL, "\n", &sp));
+			//Appel de la fonction associée
+			removeItemL(noversion, noligne);
 				
-				}
+		}
 		else if(strcmp(tok, "EV") == 0){
-				//Extraction du paramètre
-				int noversion = atoi(strtok_r(NULL, "\n", &sp));
-				//Appel de la fonction associée
-				removeItemV(noversion);
+			//Extraction du paramètre
+			int noversion = atoi(strtok_r(NULL, "\n", &sp));
+			//Appel de la fonction associée
+			removeItemV(noversion);
 				
 		}
 		else if(strcmp(tok, "ML") == 0){
-				//Extraction des paramètres
-				int noversion = atoi(strtok_r(NULL, " ", &sp));
-				int noligne = atoi(strtok_r(NULL, " ", &sp));
-				char *tligne = strtok_r(NULL, "\n", &sp);
-				//Appel de la fonction associée
-				modifyItemL(noversion, noligne,tligne);			
+			//Extraction des paramètres
+			int noversion = atoi(strtok_r(NULL, " ", &sp));
+			int noligne = atoi(strtok_r(NULL, " ", &sp));
+			char *tligne = strtok_r(NULL, "\n", &sp);
+			//Appel de la fonction associée
+			modifyItemL(noversion, noligne,tligne);			
 				
 		}
 		else if(strcmp(tok, "LL") == 0){
-				//Extraction des paramètres
-				int noversion = atoi(strtok_r(NULL, " ", &sp));
-				int nstart = atoi(strtok_r(NULL, "-", &sp));
-				int nend = atoi(strtok_r(NULL, "\n", &sp));
-				//Appel de la fonction associée
-				listItemsL(noversion, nstart, nend);
+			//Extraction des paramètres
+			int noversion = atoi(strtok_r(NULL, " ", &sp));
+			int nstart = atoi(strtok_r(NULL, "-", &sp));
+			int nend = atoi(strtok_r(NULL, "\n", &sp));
+			//Appel de la fonction associée
+			listItemsL(noversion, nstart, nend);
 				
 		}
 		else if(strcmp(tok, "LV") == 0){
-				//Extraction des paramètres
-				int nstart = atoi(strtok_r(NULL, "-", &sp));
-				int nend = atoi(strtok_r(NULL, "\n", &sp));
-				//Appel de la fonction associée
-				listItemsV(nstart, nend);
+			//Extraction des paramètres
+			int nstart = atoi(strtok_r(NULL, "-", &sp));
+			int nend = atoi(strtok_r(NULL, "\n", &sp));
+			//Appel de la fonction associée
+			listItemsV(nstart, nend);
 				
 		}
 		else if(strcmp(tok, "LC") == 0){ // lister les fichier c 
-				//Appel de la fonction associée
-				listFileC();
+			//Appel de la fonction associée
+			listFileC();
 				
 		}
 		else if(strcmp(tok, "SV") == 0){ // sauvegarde de la liste des versions
-				//Appel de la fonction associée
-				saveItemsV();
+			//Appel de la fonction associée
+			saveItemsV();
 				
 		}
 		else if(strcmp(tok, "SL") == 0){
-				//Appel de la fonction associée
-				int noversion = atoi(strtok_r(NULL, "\n", &sp));
-				saveItemsL(noversion);
+			//Appel de la fonction associée
+			int noversion = atoi(strtok_r(NULL, "\n", &sp));
+			saveItemsL(noversion);
 				
 		}
 		else if(strcmp(tok, "X") == 0){
-				//Appel de la fonction associée
-				char *nomfich = strtok_r(NULL, "\n", &sp); // nom du fichier source .c
-				executeFile(nomfich);
+			//Appel de la fonction associée
+			char *nomfich = strtok_r(NULL, "\n", &sp); // nom du fichier source .c
+			executeFile(nomfich);
 				
 		}
 
 		//Lecture (tentative) de la prochaine ligne de texte
 		fgets(buffer, 100, f);
 	}
-	//Fermeture du fichier
+
+	// faire un pthread_join() sur la liste des tid apres la boucle de gestion des transactions
+	int i = 0;
+	for (i = 0; i < nbThreads; i++) {
+		pthread_join(tid[i], NULL);
+	}
+
 	fclose(f);
-	//Retour
 	return NULL;
 }
-
-

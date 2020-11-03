@@ -13,11 +13,9 @@
 
 #include "gestionListeChaineeCVS.h"
 
-//Pointeur de tête de liste
 extern struct noeudV* debutV;
-//Pointeur de queue de liste pour ajout rapide
 extern struct noeudV* finV;
-
+extern sem_t semDebutV, semFinV;
 //#######################################
 //#
 //# Recherche un item dans la liste chaînée de VERSIONS
@@ -27,609 +25,420 @@ extern struct noeudV* finV;
 //# 		Retourne NULL dans le cas où l'item
 //#			est introuvable
 //#
-struct noeudV * findItemV(const int no){
+
+struct noeudV* findItemV(const int no) {
+
 	//La liste est vide 
 	if ((debutV==NULL)&&(finV==NULL)) return NULL;
-	
-
-	//Pointeur de navigation
-	struct noeudV * ptr = debutV;
-
-	if(ptr->noVersion==no) // premier noeud
-	    return ptr;
-
-	//Tant qu'un item suivant existe
-	while (ptr->suivant!=NULL){
-
-		//Déplacement du pointeur de navigation
-		ptr=ptr->suivant;
-
-		//Est-ce l'item recherché?
-		if (ptr->noVersion==no){
-			//On retourne un pointeur sur l'item
-			return ptr;
+       
+ struct noeudV * ptr = debutV;//curseur de navigation
+		if(ptr->noVersion==no)
+	    	return ptr;
+//Tant qu'un item suivant existe
+		while (ptr->suivant){
+			ptr=ptr->suivant;
+			if (ptr->noVersion==no){
+				return ptr;
 			}
 		}
+    }
 
-	//On retourne un pointeur NULL
 	return NULL;
-	}
+}
 
-
-//#######################################
-//#
-//# Recherche un item dans la liste chaînée de code d'une version
-//#
-//# RETOUR:	Un pointeur vers l'item recherché
-//# 		
-//# 		Retourne NULL dans le cas où l'item
-//#			est introuvable
-//#
-struct noeudL * findItemL(const int noV, const int no){
+struct noeudL* findItemL(const int noV, const int no) {
   
-  	struct noeudV * ptrV;
+  	struct noeudV* ptrV;
 	
 	ptrV = findItemV(noV);
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return NULL;
 
+	if (ptrV && (ptrV->debutL && ptrV->finL)) {
+		struct noeudL* ptr = ptrV->debutL;
 
-	//La liste  de codes est vide 
-	if ((ptrV->debutL==NULL)&&(ptrV->finL==NULL)) return NULL;
-
-	//Pointeur du debut de la liste de codes
-	struct noeudL * ptr = ptrV->debutL;
-
-	if(ptr->ligne.noligne==no) // premier noeud
-		return ptr;
-
-	//Tant qu'un item suivant existe
-	while (ptr->suivant!=NULL){
-
-		//Déplacement du pointeur de navigation
-		ptr=ptr->suivant;
-
-		//Est-ce l'item recherché?
-		if (ptr->ligne.noligne==no){
-			//On retourne un pointeur sur l'item (toujours vérrouillé)
+		if(ptr->ligne.noligne==no)
 			return ptr;
+
+		while (ptr->suivant) {
+			ptr=ptr->suivant;
+			if (ptr->ligne.noligne==no){
+				return ptr;
 			}
 		}
-
-	//On retourne un pointeur NULL
-	return NULL;
 	}
 
-//#######################################
-//#
-//# Recherche le PRÉDÉCESSEUR d'un item dans la liste chaînée de versions
-//#
-//# RETOUR:	Le pointeur vers le prédécesseur est retourné
-//# 		
-//#			
-//# 		Retourne NULL dans le cas où l'item est introuvable
-//#
-struct noeudV * findPrevV(const int no){
-
-		//La liste  de versions est vide 
-	if ((debutV==NULL)&&(finV==NULL)) return NULL;
-
-	//Pointeur du debut de la liste de versions
-	struct noeudV * ptr = debutV;
-
-	//Tant qu'un item suivant existe
-	while (ptr->suivant!=NULL){
-
-		//Est-ce le prédécesseur de l'item recherché?
-		if (ptr->suivant->noVersion==no){
-			//On retourne un pointeur sur l'item précédent
-			return ptr;
-		}
-
-		//Déplacement du pointeur de navigation
-		ptr=ptr->suivant;
-		}
-
-	//On retourne un pointeur NULL
 	return NULL;
+}
+
+struct noeudV* findPrevV(const int no){
+
+	if (debutV && finV) {
+		struct noeudV* ptr = debutV;
+
+		while (ptr->suivant){
+			if (ptr->suivant->noVersion==no){
+				return ptr;
+			}
+			ptr=ptr->suivant;
+		}
 	}
-	
-//#######################################
-//#
-//# Recherche le PRÉDÉCESSEUR d'un item dans la liste chaînée de codes
-//#
-//# RETOUR:	Le pointeur vers le prédécesseur est retourné
-//# 		
-//#			
-//# 		Retourne NULL dans le cas où l'item est introuvable
-//#
-struct noeudL * findPrevL(const int noV, const int no){
+
+	return NULL;
+}
+
+struct noeudL* findPrevL(const int noV, const int no){
   
-  	struct noeudV * ptrV;
+  	struct noeudV* ptrV;
 	
 	ptrV = findItemV(noV);
 	
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return NULL;
+	if (ptrV && (ptrV->debutL && ptrV->finL)) {
 
-		//La liste  de codes est vide 
-	if ((ptrV->debutL==NULL)&&(ptrV->finL==NULL)) return NULL;
+		struct noeudL* ptr = ptrV->debutL;
 
-	//Pointeur du debut de la liste de codes
-	struct noeudL * ptr = ptrV->debutL;
-
-	//Tant qu'un item suivant existe
-	while (ptr->suivant!=NULL){
-
-		//Est-ce le prédécesseur de l'item recherché?
-		if (ptr->suivant->ligne.noligne==no){
-			//On retourne un pointeur sur l'item précédent
-			return ptr;
+		while (ptr->suivant){
+			if (ptr->suivant->ligne.noligne==no){
+				return ptr;
+			}
+			ptr=ptr->suivant;
 		}
-
-		//Déplacement du pointeur de navigation
-		ptr=ptr->suivant;
-		}
-
-	//On retourne un pointeur NULL
-	return NULL;
 	}
 
-//#######################################
-//#
-//# Ajoute un noeud (ligne de code) dans la liste chaînée de code d'une version
-//#
-void addItemL(const int noVersion, const int nl, const char* tl){
-	struct noeudV * ptrV;
+	return NULL;
+}
+
+void addItemL(struct paramAL* param){
+	noVersion = param ->noVersion;
+	nl = param->noligne;
+	strcpy(tl,(const char*)param->tligne);
+	free(param);
+	struct noeudV* ptrV;
 	
 	ptrV = findItemV(noVersion);
 
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return;
+	sem_wait(&ptrV->semV);
+	if (ptrV) {
+		struct noeudL* ni = (struct noeudL*)malloc(sizeof(struct noeudL));
+		struct noeudL* ptrINS = findItemL(noVersion, nl);
 
-	//Création de l'enregistrement en mémoire
-	struct noeudL* ni = (struct noeudL*)malloc(sizeof(struct noeudL));
+		ni->ligne.noligne = nl;
+		strcpy(ni->ligne.ptrligne, tl);
 
-	struct noeudL* ptrINS = findItemL(noVersion, nl);
+		//initilisation du semaphore
+		sem_init(&ni->semL, 0, 1);
 
-
-	//Affectation des valeurs des champs
-	ni->ligne.noligne	= nl;
-	strcpy(ni->ligne.ptrligne, tl);
-
-
-	if((ptrINS == NULL) && (nl == 1)) // ajout au debut de la liste vide
-	{
-		// premiere ligne premier noeud 
-		ni->suivant= NULL;
-		ptrV->finL = ptrV-> debutL = ni;
-
-	}
-	else if ((ptrINS == NULL) && (nl > 1)) // ajout a la fin de la liste
-	{
-		struct noeudL* tptr = ptrV->finL;
-		ni->suivant= NULL;
-		ptrV->finL = ni;
-		tptr->suivant = ni;
-	}
-	else
-	{
-		struct noeudL* tptr = ptrINS;
-		if(tptr == ptrV->debutL) // ajout a la tete de la liste
-			ptrV->debutL = ni;
-		else
-		{
-			struct noeudL* ptrPREV = findPrevL(noVersion, nl);
-			ptrPREV->suivant = ni;
+		sem_wait(&ptrV->semDebutL);
+		sem_wait(&ptrV->semFinL);
+		if(!ptrINS && nl == 1) {
+			ni->suivant= NULL;
+			ptrV->finL = ptrV-> debutL = ni;
 		}
-		ni->suivant = tptr;
-		
-		while (tptr!=NULL){
-
-		//Est-ce le prédécesseur de l'item recherché?
-			tptr->ligne.noligne++;
-			//On retourne un pointeur sur l'item précédent
+		else if (!ptrINS && nl > 1) {
+			struct noeudL* tptr = ptrV->finL;
+			ni->suivant= NULL;
+			ptrV->finL = ni;
+			tptr->suivant = ni;
+		}
+		else {
+			struct noeudL* tptr = ptrINS;
+			if(tptr == ptrV->debutL) // ajout a la tete de la liste
+				ptrV->debutL = ni;
+			else
+			{
+				struct noeudL* ptrPREV = findPrevL(noVersion, nl);
+				ptrPREV->suivant = ni;
+			}
+			ni->suivant = tptr;
 			
-		
-
-		//Déplacement du pointeur de navigation
-			tptr=tptr->suivant;
+			while (tptr) {
+				tptr->ligne.noligne++;
+				tptr=tptr->suivant;
+			}
 		}
+		sem_post(&ptrV->semDebutL);
+		sem_post(&ptrV->semFinL);
 	}
-
+	sem_post(&ptrV->semV);
 }
 
-//#######################################
-//#
-//# Ajoute un item (noeud version) a la fin de la liste chaînée de VERSIONS
-//#
-void addItemV(const int new, const int nv, const char* vl){
+void addItemV(const bool isNew, const int nv, const char* vl){
 
-	//Création de l'enregistrement en mémoire
 	struct noeudV* ni = (struct noeudV*)malloc(sizeof(struct noeudV));
 
-
-	//Affectation des valeurs des champs de la struct noeudV
-	ni->noVersion	= nv;
+	ni->noVersion = nv;
 	strcpy(ni->ptrNoVersion, vl);
-	ni->debutL	= NULL;
-	ni->finL	= NULL;
-	
-	if(new)
-	{
-	    ni->oldVersion	= FAUX; // 0 old 1 new
-	    ni->commited	= FAUX; // never commited	  
-	}
-	else // old version
-	{
-	    ni->oldVersion	= VRAI; // 0 old 1 new
-	    ni->commited	= FAUX; // never commited	  
-	}
-	  
-	
-	
-	if(finV == NULL) // ajout au debut de la liste vide
-	{
-		// premiere version au  premier noeud 
-		ni->suivant= NULL;
-		finV = debutV = ni;
+	ni->oldVersion = !isNew;
+	ni->commited = false;
+	ni->debutL = ni->finL = NULL;
 
+	sem_init(&ni->semDebutL, 0, 1);
+	sem_init(&ni->semFinL, 0, 1);
+	sem_init(&ni->semV, 0, 1);
+
+	sem_wait(&semFinV);
+	if(!finV) {
+		ni->suivant= NULL;
+		sem_wait(&semDebutV);
+		finV = debutV = ni;
+		sem_post(&semDebutV);
 	}
-	else  // ajout a la fin de la liste
-	{
-	// ajout a la fin de la liste de versions
+	else {
 	    struct noeudV* tptr = finV;
 	    ni->suivant= NULL;
 	    finV = ni;
 	    tptr->suivant = ni;	
 	}
-
+	sem_post(&semFinV);
 }
 
-//#######################################
-//#
-//# Copier un item (noeud version) a la fin de la liste chaînée de VERSIONS (BRANCH)
-//#
-void copyItemV(const int new, const int nv){
+void copyItemV(const bool isNew, const int nv){
   
-	struct noeudV * ptrV = findItemV(nv); // ptr sur la version a copier 
+	struct noeudV* ptrV = findItemV(nv);
 	
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return;
+	sem_wait(&ptrV->semV);
+	if (ptrV) {
+		struct noeudV* ni = (struct noeudV*)malloc(sizeof(struct noeudV));
 
-	//Création de l'enregistrement en mémoire
-	struct noeudV* ni = (struct noeudV*)malloc(sizeof(struct noeudV));
+		sem_wait(&semFinV);
+		ni->noVersion = finV->noVersion+1;
 
+		char nomVersion[200];
+		sprintf(nomVersion,"V%d",ni->noVersion);
+		strcpy(ni->ptrNoVersion, nomVersion);
+		ni->debutL = ni->finL = NULL;
+		ni->commited = false;
+		ni->oldVersion = !isNew;
 
-	//Affectation des valeurs des champs de la struct noeudV
-	ni->noVersion	= finV->noVersion+1;
+		sem_init(&ni->semDebutL, 0, 1);
+		sem_init(&ni->semFinL, 0, 1);
+		sem_init(&ni->semV, 0, 1);
 
-	char nomVersion[200];
-	sprintf(nomVersion,"V%d",ni->noVersion);
-	strcpy(ni->ptrNoVersion, nomVersion); // copier le nouveau nom de version
-	ni->debutL	= NULL;
-	ni->finL	= NULL;
-	
-	if(new)
-	{
-	    ni->oldVersion	= FAUX; // 0 old 1 new
-	    ni->commited	= FAUX; // never commited	  
+		struct noeudV* tptr = finV;
+		ni->suivant= NULL;
+		finV = ni;
+		tptr->suivant = ni;
+		
+		sem_wait(&ptrV->semDebutL);
+		struct noeudL * ptrL = ptrV->debutL;
+		while (ptrL){
+			addItemL(finV->noVersion, ptrL->ligne.noligne, ptrL->ligne.ptrligne);
+			ptrL = ptrL->suivant;
+		}
+		sem_post(&ptrV->semDebutL);
+		sem_post(&semFinV);
 	}
-	else // old version
-	{
-	    ni->oldVersion	= VRAI; // 0 old 1 new
-	    ni->commited	= FAUX; // never commited	  
-	}
-
-	
-	// ajout a la fin de la liste de versions
-	struct noeudV* tptr = finV;
-	ni->suivant= NULL;
-	finV = ni;
-	tptr->suivant = ni;
-	
-	struct noeudL * ptrL = ptrV->debutL; // copier la liste de code de la version a la fin
-	while (ptrL!=NULL){ 
-	  //Affectation des valeurs des champs
-	  addItemL(finV->noVersion, ptrL->ligne.noligne, ptrL->ligne.ptrligne);
-	  ptrL = ptrL->suivant;
-        }
-
+	sem_post(&ptrV->semV);
 }
 
-
-//#######################################
-//#
-//# Retire un item de la liste chaînée de versions
-//#
 void removeItemV(const int noV){
 
-	struct noeudV * ptrV;
-	struct noeudV * tptrV;
-	struct noeudV * optrV;
-	struct noeudL * ptrL;
-	struct noeudL * ptrLSuivant;
+	struct noeudV* ptrV;
+	struct noeudV* tptrV = NULL;
+	struct noeudV* optrV;
+	struct noeudL* ptrL;
+	struct noeudL* ptrLSuivant;
 	
 	char texteVersion[100];
-
-
-	//Vérification sommaire (no>0 et liste non vide)
 	
-	if ((noV<1)||((debutV==NULL)&&(finV==NULL)))
-		return;
+	if ((noV>0) && (debutV && finV)) {
 
-	//Pointeur de recherche
-	if(noV==1){
-		ptrV = debutV; // suppression du premier element de la liste de versions
-	}
-	else{
-		ptrV = findPrevV(noV);
-	}
-	//L'item a été trouvé
-	if (ptrV!=NULL){
+		if(noV == 1){
+			ptrV = debutV;
+		}
+		else{
+			ptrV = findPrevV(noV);
+		}
 
-		// Memorisation du pointeur de l'item en cours de suppression
-		// Ajustement des pointeurs
-		if((debutV == ptrV) && (noV==1)) // suppression de l'element de tete
-		{
-			if(debutV==finV) // un seul element dans la liste des version
+		if (ptrV) {
+			if(debutV == ptrV)
 			{
-			    ptrL = ptrV->debutL; // supprimer la liste de code de la version
-			    while (ptrL!=NULL){ 
-				 ptrLSuivant = ptrL->suivant;
-				 free(ptrL); // suppression du noeud de la liste de code 
-				 ptrL=ptrLSuivant;
-			    }
-			    free(ptrV);
-			    finV = debutV = NULL;
-			    return;
+				if(debutV == finV)
+				{
+					ptrL = ptrV->debutL;
+					while (ptrL) { 
+						ptrLSuivant = ptrL->suivant;
+						free(ptrL);
+						ptrL = ptrLSuivant;
+					}
+					free(ptrV);
+					finV = debutV = NULL;
+				} 
+				else {
+					tptrV = ptrV->suivant;
+					debutV = tptrV;
+					ptrL = ptrV->debutL;
+					while (ptrL) { 
+						ptrLSuivant = ptrL->suivant;
+						free(ptrL);
+						ptrL = ptrLSuivant;
+					}
+					free(ptrV);
+				}
 			}
-			tptrV = ptrV->suivant;
-			debutV = tptrV;
-			ptrL = ptrV->debutL; // supprimer la liste de code de la version
-			while (ptrL!=NULL){ 
-			    ptrLSuivant = ptrL->suivant;
-			    free(ptrL); // suppression du noeud de la liste de code 
-			    ptrL=ptrLSuivant;
-			 }
-			free(ptrV);
-		}
-		else if (finV==ptrV->suivant) // suppression de l'element de queue
-		{
-			finV=ptrV;
-			ptrL = ptrV->suivant->debutL; // supprimer la liste de code de la version a la fin
-			while (ptrL!=NULL){ 
-				 ptrLSuivant = ptrL->suivant;
-				 free(ptrL); // suppression du noeud de la liste de code 
-				 ptrL=ptrLSuivant;
-			 }
-			free(ptrV->suivant);
-			ptrV->suivant=NULL;
-			return;
-		}
-		else // suppression d'un element dans la liste
-		{
-			optrV = ptrV->suivant;
-			ptrL = ptrV->suivant->debutL; // supprimer la liste de code de la version a la fin
-			while (ptrL!=NULL){ 
-				 ptrLSuivant = ptrL->suivant;
-				 free(ptrL); // suppression du noeud de la liste de code 
-				 ptrL=ptrLSuivant;
-			 }
-			ptrV->suivant = ptrV->suivant->suivant;
-			tptrV = ptrV->suivant;
-			free(optrV);
-		}
-		
-		
-		while (tptrV!=NULL){ // ajautement des numeros de version
-
-		//Est-ce le prédécesseur de l'item recherché?
-			tptrV->noVersion--;
-			//On retourne un pointeur sur l'item précédent
+			else if (finV == ptrV->suivant) {
+				finV = ptrV;
+				ptrL = ptrV->suivant->debutL;
+				while (ptrL) { 
+					ptrLSuivant = ptrL->suivant;
+					free(ptrL);
+					ptrL = ptrLSuivant;
+				}
+				free(ptrV->suivant);
+				ptrV->suivant = NULL;
+			}
+			else {
+				optrV = ptrV->suivant;
+				ptrL = ptrV->suivant->debutL; // supprimer la liste de code de la version a la fin
+				while (ptrL) { 
+					ptrLSuivant = ptrL->suivant;
+					free(ptrL); // suppression du noeud de la liste de code 
+					ptrL = ptrLSuivant;
+				}
+				ptrV->suivant = ptrV->suivant->suivant;
+				tptrV = ptrV->suivant;
+				free(optrV);
+			}
 			
-			sprintf(texteVersion, "V%d",tptrV->noVersion);
-			strcpy(tptrV->ptrNoVersion, texteVersion);
-			
-		
+			while (tptrV) {
+				tptrV->noVersion--;
 
-		//Déplacement du pointeur de navigation
-			tptrV=tptrV->suivant;
+				sprintf(texteVersion, "V%d",tptrV->noVersion);
+				strcpy(tptrV->ptrNoVersion, texteVersion);
+
+				tptrV=tptrV->suivant;
+			}
 		}
 	}
 }
 
-
-
-//#######################################
-//#
-//# Retire un item de la liste chaînée de code d'une version noVersion
-//#
 void removeItemL(const int noVersion, const int noline){
 
-	struct noeudL * ptrL;
-	struct noeudL * tptrL;
-	struct noeudL * optrL;
-	struct noeudV * ptrV;
+	struct noeudL* ptrL;
+	struct noeudL* tptrL = NULL;
+	struct noeudL* optrL;
+	struct noeudV* ptrV;
 	
 	ptrV = findItemV(noVersion);
 	
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return;
+	if (ptrV && noline>0 && (ptrV->debutL && ptrV->finL)) {
 
-	//Vérification sommaire (no>0 et liste non vide)
-	
-	if ((noline<1)||((ptrV->debutL==NULL)&&(ptrV->finL==NULL)))
-		return;
+		if(noline==1){
+			ptrL = ptrV->debutL;
+		}
+		else{
+			ptrL = findPrevL(noVersion, noline);
+		}
 
-	//Pointeur de recherche
-	if(noline==1){
-		ptrL = ptrV->debutL; // suppression du premier element de la liste
-	}
-	else{
-		ptrL = findPrevL(noVersion, noline);
-	}
-	//L'item a été trouvé
-	if (ptrL!=NULL){
-
-		// Memorisation du pointeur de l'item en cours de suppression
-		// Ajustement des pointeurs
-		if((ptrV->debutL  == ptrL) && (noline==1)) // suppression de l'element de tete
-		{
-			if(ptrV->debutL == ptrV->finL) // un seul element dans la liste de code
-			{
-				free(ptrL);
-				ptrV->debutL = ptrV->finL = NULL;
-				return;
+		if (ptrL){
+			if(ptrV->debutL  == ptrL){
+				if(ptrV->debutL == ptrV->finL) {
+					free(ptrL);
+					ptrV->debutL = ptrV->finL = NULL;
+				}
+				else {
+					tptrL = ptrL->suivant;
+					ptrV->debutL = tptrL;
+					free(ptrL);
+				}
 			}
-			tptrL = ptrL->suivant;
-			ptrV->debutL = tptrL;
-			free(ptrL);
-		}
-		else if (ptrV->finL == ptrL->suivant) // suppression de l'element de queue
-		{
-			ptrV->finL = ptrL;
-			free(ptrL->suivant);
-			ptrL->suivant=NULL;
-			return;
-		}
-		else // suppression d'un element dans la liste de code
-		{
-			optrL = ptrL->suivant;	
-			ptrL->suivant = ptrL->suivant->suivant;
-			tptrL = ptrL->suivant;
-			free(optrL);
-		}
-		
-		
-		while (tptrL!=NULL){ // ajautement des numeros de ligne
+			else if (ptrV->finL == ptrL->suivant) {
+				ptrV->finL = ptrL;
+				free(ptrL->suivant);
+				ptrL->suivant=NULL;
+			}
+			else {
+				optrL = ptrL->suivant;	
+				ptrL->suivant = ptrL->suivant->suivant;
+				tptrL = ptrL->suivant;
+				free(optrL);
+			}
 
-		//Est-ce le prédécesseur de l'item recherché?
-			tptrL->ligne.noligne--;
-			//On retourne un pointeur sur l'item précédent	
-
-		//Déplacement du pointeur de navigation
-			tptrL=tptrL->suivant;
+			while (tptrL) {
+				tptrL->ligne.noligne--;
+				tptrL=tptrL->suivant;
+			}
 		}
 	}
 }
 
-//#######################################
-//#
-//# Modifie un item de la liste chaînée
-//#
 void modifyItemL(const int noVersion, const int noline, const char* tline){
-	struct noeudV * ptrV;
+	struct noeudV* ptrV;
 
 	ptrV = findItemV(noVersion);
 	
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return;
-	//Vérification sommaire (no>0 et liste non vide)
+	if (ptrV && noline>0 && (ptrV->debutL && ptrV->finL)) {
 
-	if ((noline<1)||((ptrV->debutL==NULL)&&(ptrV->finL==NULL)))
-		return;
+		struct noeudL* ptrL = findItemL(noVersion, noline);
 
-
-	//Recherche de l'élément à modifier
-	struct noeudL * ptrL = findItemL(noVersion, noline);
-
-	//L'élément à été trouvé
-	if (ptrL!=NULL){
-
-		//Modification des champs de l'élément trouvé
-		strcpy(ptrL->ligne.ptrligne, tline);
-
+		if (ptrL){
+			strcpy(ptrL->ligne.ptrligne, tline);
+		}
 	}
 }
 
-//#######################################
-//#
-//# Affiche les items dont le numéro séquentiel est compris dans une plage de numero de version
-//#
 void listItemsV(const int start, const int end){
 
-	//Affichage des entêtes de colonnes
 	printf("noVersion  Nom Version                                  \n");
 	printf("======= ================================================\n");
 
-	struct noeudV * ptr = debutV;			//premier element de la liste des version
 
+	sem_wait(&semDebutV);
 
-	while (ptr!=NULL){
+	struct noeudV* ptr = debutV;
 
-		//L'item a un numéro séquentiel dans l'interval défini
-		if ((ptr->noVersion>=start)&&(ptr->noVersion<=end)){
+	sem_post(&semDebutV);
+
+	while (ptr){
+		if (ptr->noVersion >= start && ptr->noVersion <= end) {
 			printf("%d \t %s\n",
 				ptr->noVersion,
 				ptr->ptrNoVersion);
 			}
-		if (ptr->noVersion>end){
-			//L'ensemble des items potentiels sont maintenant passés
-			//Déplacement immédiatement à la FIN de la liste des versions
-			//Notez que le pointeur optr est toujours valide
-			ptr=NULL;
-			}
+		if (ptr->noVersion > end){
+			ptr = NULL;
+		}
 		else{
 			ptr = ptr->suivant;
 		}
 
 	}
 
-	//Affichage des pieds de colonnes
 	printf("======= ===============================================\n\n");
-	}
-	
-	
-//#######################################
-//#
-//# Affiche les items dont le numéro séquentiel est compris dans une plage de numero de ligne de code
-//#
+}
+
 void listItemsL(const int noVersion, const int start, const int end){
   
-	struct noeudV * ptrV;
+	struct noeudV* ptrV;
 	
 	ptrV = findItemV(noVersion);
-	
-	// Verifier si la version existe
-	if (ptrV==NULL)
-	  return;
 
-	//Affichage des entêtes de colonnes
-	printf("noVersion noligne	texte                                          \n");
-	printf("=======   ===========   ==================================\n");
+	sem_wait(&ptrV->semV);
+	if (ptrV) {
+		printf("noVersion noligne	texte                                          \n");
+		printf("=======   ===========   ==================================\n");
 
-	struct noeudL * ptr = ptrV->debutL;			//premier element de la liste de code d'une version
+		sem_wait(&ptrV->semDebutL);
 
+		struct noeudL* ptr = ptrV->debutL;
 
-	while (ptr!=NULL){
+		sem_post(&ptrV->semDebutL);
 
-		//L'item a un numéro séquentiel dans l'interval défini
-		if ((ptr->ligne.noligne>=start)&&(ptr->ligne.noligne<=end)){
-			printf("%d \t %d \t %s\n",
-				ptrV->noVersion,
-			        ptr->ligne.noligne,
-				ptr->ligne.ptrligne);
+		while (ptr){
+			if (ptr->ligne.noligne >= start && ptr->ligne.noligne <= end) {
+				printf("%d \t %d \t %s\n",
+					ptrV->noVersion,
+					ptr->ligne.noligne,
+					ptr->ligne.ptrligne);
+				}
+			if (ptr->ligne.noligne > end) {
+				ptr = NULL;
 			}
-		if (ptr->ligne.noligne>end){
-			//L'ensemble des items potentiels sont maintenant passés
-			//Déplacement immédiatement à la FIN de la liste
-			//Notez que le pointeur optr est toujours valide
-			ptr=NULL;
+			else {
+				ptr = ptr->suivant;
 			}
-		else{
-			ptr = ptr->suivant;
 		}
 
+		printf("=========================================================\n\n");
 	}
 
-	//Affichage des pieds de colonnes
-	printf("=========================================================\n\n");
-	}
-
+	sem_post(&ptrV->semV);
+}
